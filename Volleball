@@ -1,0 +1,148 @@
+-- Volleyball Script 4.2 by Sneaky
+-- Version 0.3
+
+-- USER SETTINGS:
+local settings = {
+    setForward = "f",            -- Key to set forward (DEFAULT: F)
+    setBackwards = "r",          -- Key to set backward (DEFAULT: R)
+    spikeMode = "random",        -- Spike mode ("random" or "point")
+    changeMode = "One",          -- Toggle block mode and spike mode (DEFAULT: One)
+    maxPower = "c",              -- Key to set max power (DEFAULT: C)
+    jump = "Space",              -- Jump key (DEFAULT: Space)
+    sprintKey = "t",             -- Sprint key (DEFAULT: T)
+}
+
+-- VARIABLE INITIALIZATION
+local player = game.Players.LocalPlayer
+local ui = player:WaitForChild("PlayerGui"):WaitForChild("Volleyball42")
+local dev = false -- Debug toggle
+local setting, serving, spiking, power, sprint, block = false, false, false, false, false, false
+local mouse = player:GetMouse()
+
+-- Initialize Tilt Variables
+local tiltActive = false
+local tiltDirection = nil
+
+-- Tilt Function
+local function tiltPlayer(direction)
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return
+    end
+
+    local rootPart = player.Character.HumanoidRootPart
+
+    if direction == "right" then
+        rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(15), 0) -- Tilt right by 15 degrees
+    elseif direction == "left" then
+        rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(-15), 0) -- Tilt left by 15 degrees
+    end
+end
+
+-- CREATE UI ELEMENTS
+local function createButton(name, position, label, callback)
+    local button = Instance.new("TextButton")
+    button.Name = name
+    button.Parent = ui.Main
+    button.Size = UDim2.new(0, 121, 0, 34)
+    button.Position = position
+    button.Text = label
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.BackgroundTransparency = 0.4
+    button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    button.TextScaled = true
+    button.Font = Enum.Font.SourceSans
+    button.Activated:Connect(callback)
+    return button
+end
+
+-- CONFIGURE UI BUTTONS
+createButton("Setting", UDim2.new(0.05, 0, 0.21, 0), "Setting", function()
+    setting = not setting
+    ui.Main.Setting.TextColor = setting and BrickColor.new("Bright green") or BrickColor.new("White")
+end)
+
+createButton("Serving", UDim2.new(0.05, 0, 0.47, 0), "Serving", function()
+    serving = not serving
+    ui.Main.Serving.TextColor = serving and BrickColor.new("Bright green") or BrickColor.new("White")
+end)
+
+createButton("Spiking", UDim2.new(0.05, 0, 0.73, 0), "Spiking", function()
+    spiking = not spiking
+    ui.Main.Spiking.TextColor = spiking and BrickColor.new("Bright green") or BrickColor.new("White")
+end)
+
+createButton("Power", UDim2.new(0.53, 0, 0.21, 0), "Power", function()
+    power = not power
+    ui.Main.Power.TextColor = power and BrickColor.new("Bright green") or BrickColor.new("White")
+end)
+
+createButton("Sprint", UDim2.new(0.53, 0, 0.47, 0), "Sprint", function()
+    sprint = not sprint
+    ui.Main.Sprint.TextColor = sprint and BrickColor.new("Bright green") or BrickColor.new("White")
+end)
+
+createButton("Destroy", UDim2.new(0.53, 0, 0.73, 0), "Destroy", function()
+    ui:Destroy()
+    script:Destroy()
+end).TextColor3 = Color3.fromRGB(170, 0, 0) -- Red text for destroy button
+
+-- AIM FUNCTIONS
+local function lookAt(character, target)
+    if character.PrimaryPart then
+        character:SetPrimaryPartCFrame(CFrame.new(character.PrimaryPart.Position, target.Position))
+    end
+end
+
+local function lookAway(character, target)
+    if character.PrimaryPart then
+        local frame = CFrame.new(character.PrimaryPart.Position, target.Position)
+        character:SetPrimaryPartCFrame(frame * CFrame.Angles(0, math.rad(180), 0))
+    end
+end
+
+-- HANDLE KEY INPUTS
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessedEvent)
+    local key = input.KeyCode
+
+    -- Auto-tilt controls
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) and input.KeyCode == Enum.KeyCode.D then
+        tiltActive = true
+        tiltDirection = "right"
+        tiltPlayer("right")
+    elseif UserInputService:IsKeyDown(Enum.KeyCode.S) and input.KeyCode == Enum.KeyCode.A then
+        tiltActive = true
+        tiltDirection = "left"
+        tiltPlayer("left")
+    end
+
+    if key == Enum.KeyCode[settings.jump] then
+        if power then
+            game:GetService("VirtualInputManager"):SendKeyEvent(true, string.upper(settings.maxPower), false, game)
+        end
+    end
+
+    if setting and (key == Enum.KeyCode[string.upper(settings.setForward)] or key == Enum.KeyCode[string.upper(settings.setBackwards)]) then
+        local target = player.TeamColor == BrickColor.new("Really blue") and "left" or "right"
+        key == Enum.KeyCode[string.upper(settings.setForward)] and lookAt(player.Character, target) or lookAway(player.Character, target)
+    end
+
+    if serving and key == Enum.KeyCode[settings.jump] then
+        local randomCorner = math.random(1, 2) == 1 and "corner1" or "corner2"
+        lookAt(player.Character, randomCorner)
+    end
+
+    if spiking and key == Enum.KeyCode[settings.jump] then
+        local spikeTarget = spikeMode == "random" and Vector3.new(math.random(-20, 20), 10, math.random(-20, 20)) or Vector3.new(mouse.Hit.X, 10, mouse.Hit.Z)
+        lookAt(player.Character, spikeTarget)
+    end
+end)
+
+-- Stop tilt on key release
+game:GetService("UserInputService").InputEnded:Connect(function(input, gameProcessedEvent)
+    if gameProcessedEvent then return end
+
+    if input.KeyCode == Enum.KeyCode.S or input.KeyCode == Enum.KeyCode.D or input.KeyCode == Enum.KeyCode.A then
+        tiltActive = false
+        tiltDirection = nil
+    end
+end)
